@@ -13,7 +13,7 @@ T MessageQueue<T>::receive()
     // The received object should then be returned by the receive function. 
     // Perfore queue modification under the lock
     std::unique_lock<std::mutex> uLock(_mutex);
-    _cond.wait(uLock,[this]{!_messages.empty();}); // pass unique lock to condition variable
+    _cond.wait(uLock,[this]{return !_messages.empty();}); // pass unique lock to condition variable
 
     //remove last vector element from queue
     T msg = std::move(_messages.back());
@@ -29,8 +29,8 @@ void MessageQueue<T>::send(T &&msg)
     // as well as _condition.notify_one() to add a new message to the queue and afterwards send a notification.
     //perfome vector modification under the lock
     std::lock_guard<std::mutex> ulock(_mutex);
-
-    _messages.push_back(std::move(msg));
+    _messages.clear();
+    _messages.emplace_back(std::move(msg));
     _cond.notify_one();
 }
 
@@ -43,6 +43,10 @@ TrafficLight::TrafficLight()
     _currentPhase = TrafficLightPhase::red;
 }
 
+TrafficLight::~TrafficLight(){
+    
+}
+
 void TrafficLight::WaitForGreen()
 {
     // FP.5b : add the implementation of the method waitForGreen, in which an infinite while-loop 
@@ -51,7 +55,6 @@ void TrafficLight::WaitForGreen()
     TrafficLightPhase currentPhase = TrafficLightPhase::red;
     while (currentPhase != TrafficLightPhase::green ) {
         currentPhase = _trafficLightPhaseQueue.receive();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
 
@@ -73,11 +76,14 @@ void TrafficLight::CycleThroughPhases()
     // and toggles the current phase of the traffic light between red and green and sends an update method 
     // to the message queue using move semantics. The cycle duration should be a random value between 4 and 6 seconds. 
     // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles. 
+    time_t current_time, total_time;
     while (true){
-        time_t current_time, total_time;
-        int random_time = std::rand() % 6 + 4;
+        std::random_device rd;
+        std::mt19937 eng(rd());
+        std::uniform_int_distribution<> distr(40,60);
+        int cycle_duration = distr(eng);
         current_time = time(NULL);
-        total_time = current_time + random_time;
+        total_time = current_time + cycle_duration;
         while (current_time != total_time){
             current_time = time(NULL);
             // Sleep for 1 ms 
@@ -91,8 +97,6 @@ void TrafficLight::CycleThroughPhases()
 
         std::cout << "Sending the message" << std::endl;
         _trafficLightPhaseQueue.send(std::move(_currentPhase));
-
-        
     }
     
 }

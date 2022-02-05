@@ -40,7 +40,7 @@ public:
     
     // constructor / desctructor
     TrafficLight();
-
+    ~TrafficLight();
     // getters / setters
     TrafficLightPhase getCurrentPhase();
 
